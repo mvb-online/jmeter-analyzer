@@ -126,6 +126,11 @@ class ImportFile implements ProgressingRunnable {
                             if (counter % 500 == 0 && createTable) {
                                 for(String table : tables) {
                                     String update = statements.get(table).toString();
+
+                                    if(update.endsWith(" VALUES ")) {
+                                        continue;
+                                    }
+
                                     Statement s = c.createStatement();
 
                                     s.executeUpdate(update);
@@ -167,8 +172,14 @@ class ImportFile implements ProgressingRunnable {
                     try {
                         if(createTable) {
                             for(String table : tables) {
+                                String update = statements.get(table).toString();
+
+                                if(update.endsWith(" VALUES ")) {
+                                    continue;
+                                }
+
                                 Statement s = c.createStatement();
-                                s.executeUpdate(statements.get(table).toString());
+                                s.executeUpdate(update);
                                 s.close();
                             }
                         }
@@ -182,14 +193,7 @@ class ImportFile implements ProgressingRunnable {
 
             saxParser.parse(new InputSource(reader), dh);
 
-        } catch (SAXException | ParserConfigurationException e) {
-            status = "FAIL";
-            e.printStackTrace();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            status = "FAIL";
-            System.exit(-1);
-        } catch (IOException e) {
+        } catch (SAXException | ParserConfigurationException | IOException e) {
             status = "FAIL";
             e.printStackTrace();
             System.exit(-1);
