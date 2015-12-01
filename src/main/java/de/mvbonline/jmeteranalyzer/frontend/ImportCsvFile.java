@@ -89,7 +89,9 @@ public class ImportCsvFile implements ImportFileJob {
             createdTables.put(threadName, true);
         }
 
-        sqlImport.insertSamples(buffer, threadName);
+        if(createTables) {
+            sqlImport.insertSamples(buffer, threadName);
+        }
     }
 
     private void writeCompleteBuffer(Map<String, List<Sample>> threadNameSampleBuffer) {
