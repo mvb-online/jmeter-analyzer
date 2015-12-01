@@ -24,7 +24,7 @@ public class SqlImport {
                     "success int not null," +
                     "responseCode int not null," +
                     "responseMessage text not null," +
-                    "duration int not null," +
+                    "duration int null," +
                     "responseSize int not null" +
                     ")");
         } catch (SQLException e) {
@@ -40,7 +40,13 @@ public class SqlImport {
         ret.append("'").append(sample.getSuccess()).append("', ");
         ret.append("'").append(sample.getResponseCode()).append("', ");
         ret.append("'").append(sample.getResponseMessage()).append("', ");
-        ret.append("'").append(sample.getDuration()).append("', ");
+
+        String duration = "NULL";
+        if(sample.getDuration() != Integer.MAX_VALUE) {
+            duration = "'" + sample.getDuration() + "'";
+        }
+
+        ret.append(duration).append(", ");
         ret.append("'").append(sample.getResponseSize()).append("'");
 
         ret.append(")");

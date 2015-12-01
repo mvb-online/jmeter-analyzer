@@ -72,26 +72,26 @@ public class CalculatingTotalAggregates implements ProgressingRunnable {
 
     private void runQueries(ProgressingRunnableLogger context, String table, Map<String, String> queries) throws SQLException {
         for(Map.Entry<String, String> aggregation : queries.entrySet()) {
-            Statement s = c.createStatement();
-            String query = aggregation.getValue().replace("%name%", "'1'").replace("%table%", "'" + table + "'");
-            ResultSet rs = s.executeQuery(query);
-            if(!rs.next()) {
-                out.println("Did not get result from query: " + aggregation.getKey());
-                status = -1;
-                return;
+            try (Statement s = c.createStatement()) {
+                String query = aggregation.getValue().replace("%name%", "'1'").replace("%table%", "'" + table + "'");
+                try (ResultSet rs = s.executeQuery(query)) {
+                    if (!rs.next()) {
+                        out.println("\t" + aggregation.getKey() + ": No value could be calculated (Probably because of too many error responses)");
+                        counter++;
+                        continue;
+                    }
+                    String res = rs.getString("value");
+
+                    out.println("\t" + aggregation.getKey() + ": " + res);
+
+                    counter++;
+                    double total = totalAggregate.size() + aggregate.size();
+                    double current = counter;
+                    double maximum = max;
+                    status = (int) (current / total * maximum + 0.5d);
+                    context.setStatus(getProgress());
+                }
             }
-            String res = rs.getString("value");
-
-            out.println("\t" + aggregation.getKey() + ": " + res);
-
-            s.close();
-
-            counter++;
-            double total = totalAggregate.size() + aggregate.size();
-            double current = counter;
-            double maximum = max;
-            status = (int) (current / total * maximum + 0.5d);
-            context.setStatus(getProgress());
         }
     }
 

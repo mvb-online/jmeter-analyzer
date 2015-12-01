@@ -50,44 +50,69 @@ public class Config {
         PER_LABEL_AGGREGATES.put("Error Response Messages", "select group_concat(distinct responseMessage) as value from %table% where success = 0 and %name%");
         PER_LABEL_AGGREGATES.put("Successes", "select count(*) as value from %table% where success = '1' and %name%");
         PER_LABEL_AGGREGATES.put("Success %", "select (avg(success) * 100) as value from %table% where %name%");
-        PER_LABEL_AGGREGATES.put("Min Response Time (ms)", "select (duration || ' (' || datetime(cast(timestamp / 1000 as int), \"unixepoch\") || ')') || ' UTC' as value from %table% where %name% order by duration ASC limit 1");
-        PER_LABEL_AGGREGATES.put("Max Response Time (ms)", "select (duration || ' (' || datetime(cast(timestamp / 1000 as int), \"unixepoch\") || ')') || ' UTC' as value from %table% where %name% order by duration DESC limit 1");
+        PER_LABEL_AGGREGATES.put("Min Response Time (ms)", "select (duration || ' (' || datetime(cast(timestamp / 1000 as int), \"unixepoch\") || ')') || ' UTC' as value from %table% where %name% and duration not null order by duration ASC limit 1");
+        PER_LABEL_AGGREGATES.put("Max Response Time (ms)", "select (duration || ' (' || datetime(cast(timestamp / 1000 as int), \"unixepoch\") || ')') || ' UTC' as value from %table% where %name% and duration not null order by duration DESC limit 1");
         PER_LABEL_AGGREGATES.put("Average Response Time (ms)", "select avg(duration) as value from %table% where %name%");
         PER_LABEL_AGGREGATES.put("Median Response Time (ms)", "SELECT AVG(duration) as value\n" +
                 "FROM (SELECT duration\n" +
                 "      FROM %table%\n" +
                 "      WHERE %name%\n" +
+                "AND duration not null\n" +
                 "      ORDER BY duration\n" +
-                "      LIMIT 2 - (SELECT COUNT(*) FROM %table% where %name%) % 2    -- odd 1, even 2\n" +
+                "      LIMIT 2 - (SELECT COUNT(*) FROM %table% where %name% AND duration not null) % 2    -- odd 1, even 2\n" +
                 "      OFFSET (SELECT (COUNT(*) - 1) / 2\n" +
-                "              FROM %table% where %name%))");
+                "              FROM %table% where %name% AND duration not null))");
         PER_LABEL_AGGREGATES.put("90% quicker than (ms)", "SELECT\n" +
                 "  duration AS value\n" +
                 "  FROM %table%\n" +
                 "  WHERE %name%\n" +
+                "AND duration not null\n" +
                 "  ORDER BY duration ASC\n" +
                 "  LIMIT 1\n" +
-                "  OFFSET (select count(*) from %table% where %name%)*9/10-1;");
+                "  OFFSET (select count(*) from %table% where %name% AND duration not null)*9/10-1;");
         PER_LABEL_AGGREGATES.put("99% quicker than (ms)", "SELECT\n" +
                 "  duration AS value\n" +
                 "  FROM %table%\n" +
                 "  WHERE %name%\n" +
+                "AND duration not null\n" +
                 "  ORDER BY duration ASC\n" +
                 "  LIMIT 1\n" +
-                "  OFFSET (select count(*) from %table% where %name%)*99/100-1;");
+                "  OFFSET (select count(*) from %table% where %name% AND duration not null)*99/100-1;");
         PER_LABEL_AGGREGATES.put("90% slower than (ms)", "SELECT\n" +
                 "  duration AS value\n" +
                 "  FROM %table%\n" +
                 "  WHERE %name%\n" +
+                "AND duration not null\n" +
                 "  ORDER BY duration DESC\n" +
                 "  LIMIT 1\n" +
-                "  OFFSET (select count(*) from %table% where %name%)*9/10-1;");
+                "  OFFSET (select count(*) from %table% where %name% AND duration not null)*9/10-1;");
         PER_LABEL_AGGREGATES.put("99% slower than (ms)", "SELECT\n" +
                 "  duration AS value\n" +
                 "  FROM %table%\n" +
                 "  WHERE %name%\n" +
+                "AND duration not null\n" +
                 "  ORDER BY duration DESC\n" +
                 "  LIMIT 1\n" +
-                "  OFFSET (select count(*) from %table% where %name%)*99/100-1;");
+                "  OFFSET (select count(*) from %table% where %name% AND duration not null)*99/100-1;");
+        PER_LABEL_AGGREGATES.put("% faster than 1000ms", "SELECT\n" +
+                "(count(*) * 100.0 / (SELECT count(*) FROM %table% WHERE %name%)) || '% (' || count(*) || ')' as value\n" +
+                "FROM %table%\n" +
+                "WHERE %name%\n" +
+                "AND duration <= 1000\n");
+        PER_LABEL_AGGREGATES.put("% faster than 500ms", "SELECT\n" +
+                "(count(*) * 100.0 / (SELECT count(*) FROM %table% WHERE %name%)) || '% (' || count(*) || ')' as value\n" +
+                "FROM %table%\n" +
+                "WHERE %name%\n" +
+                "AND duration <= 500\n");
+        PER_LABEL_AGGREGATES.put("% faster than 100ms", "SELECT\n" +
+                "(count(*) * 100.0 / (SELECT count(*) FROM %table% WHERE %name%)) || '% (' || count(*) || ')' as value\n" +
+                "FROM %table%\n" +
+                "WHERE %name%\n" +
+                "AND duration <= 100\n");
+        PER_LABEL_AGGREGATES.put("% faster than 50ms", "SELECT\n" +
+                "(count(*) * 100.0 / (SELECT count(*) FROM %table% WHERE %name%)) || '% (' || count(*) || ')' as value\n" +
+                "FROM %table%\n" +
+                "WHERE %name%\n" +
+                "AND duration <= 50\n");
     }
 }

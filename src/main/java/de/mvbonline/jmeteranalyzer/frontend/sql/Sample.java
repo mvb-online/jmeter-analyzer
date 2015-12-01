@@ -64,6 +64,9 @@ public class Sample {
     }
 
     public void setDuration(int duration) {
+        if(duration == 0) {
+            duration = Integer.MAX_VALUE;
+        }
         this.duration = duration;
     }
 

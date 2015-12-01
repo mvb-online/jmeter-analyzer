@@ -74,19 +74,18 @@ public class CalculatingAggregatesPerLabel implements ProgressingRunnable {
                     out.flush();
 
                     for(Map.Entry<String, String> agg : aggregate.entrySet()) {
-                        Statement statement = c.createStatement();
-                        String query = agg.getValue().replace("%name%", "name = '" + name + "'").replace("%table%", "'" + table + "'");
-                        ResultSet rs = statement.executeQuery(query);
-                        if(!rs.next()) {
-                            System.err.println("Did not get result from query: " + agg.getKey());
-                            return;
+                        try (Statement statement = c.createStatement()) {
+                            String query = agg.getValue().replace("%name%", "name = '" + name + "'").replace("%table%", "'" + table + "'");
+                            try (ResultSet rs = statement.executeQuery(query)) {
+                                if (!rs.next()) {
+                                    out.println("\t\t" + agg.getKey() + ": No value could be calculated (Probably because of too many error responses)");
+                                    continue;
+                                }
+                                String res = rs.getString("value");
+
+                                out.println("\t\t" + agg.getKey() + ": " + res);
+                            }
                         }
-                        String res = rs.getString("value");
-
-                        out.println("\t\t" + agg.getKey() + ": " + res);
-
-                        rs.close();
-                        statement.close();
                     }
                 }
             }
