@@ -1,16 +1,19 @@
 
-package de.mvbonline.jmeteranalyzer;
+package de.mvbonline.jmeteranalyzer.util;
 
 /**
  * Helper class for pretty output. Logs the action of a ProgressingAction in a pretty way
  */
-class ProgressingRunnableLogger {
+public class ProgressingRunnableLogger {
 
     private static final int WIDTH = 80;
     private static final String DOTDOTDOT = "...";
 
 
     private ProgressingRunnable action;
+
+    private String status;
+    private Exception exception;
 
     private String name;
 
@@ -22,6 +25,14 @@ class ProgressingRunnableLogger {
     public ProgressingRunnableLogger(String name, ProgressingRunnable action) {
         this.name = name;
         this.action = action;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     /**
@@ -69,36 +80,52 @@ class ProgressingRunnableLogger {
         overwrite();
         printName();
         printStatus(status);
-        System.out.print("\r");
+        //System.out.print("\r");
     }
 
     /**
      * Run the action and display the output
      */
     public void doAction() {
+        status = "starting";
+        exception = null;
+
         // create the thread that will run the action
-        Thread t = new Thread(action);
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    action.run(ProgressingRunnableLogger.this);
+                } catch (Exception e) {
+                    exception = e;
+                }
+            }
+        });
         t.start();
 
         // wait for the thread to finish
         while(t.isAlive()) {
             // print the progress and sleep
-            printProgressLine(action.getProgress());
+            printProgressLine(status);
             try {
                 Thread.sleep(500);
             } catch (InterruptedException e) {
                 // nothing
             }
         }
+        if(exception != null) {
+            status = "ERROR";
+        }
 
         // print the last status again and go to the next line
         overwrite();
         printName();
-        printStatus(action.getProgress());
+        printStatus(status);
         System.out.println();
 
-        // tell the action that we're done
-        action.end();
+        if(exception != null) {
+            exception.printStackTrace();
+        }
     }
 
 }

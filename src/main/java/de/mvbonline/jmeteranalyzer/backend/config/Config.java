@@ -1,5 +1,5 @@
 
-package de.mvbonline.jmeteranalyzer;
+package de.mvbonline.jmeteranalyzer.backend.config;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * This class holds configuration values. In this case all the aggregate functions
  */
-class Config {
+public class Config {
 
     // aggregation queries for all requests
     // these don't really make sense to apply to a single request

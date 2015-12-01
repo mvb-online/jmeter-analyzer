@@ -1,5 +1,15 @@
 package de.mvbonline.jmeteranalyzer;
 
+import de.mvbonline.jmeteranalyzer.backend.CalculatingAggregatesPerLabel;
+import de.mvbonline.jmeteranalyzer.backend.CalculatingTotalAggregates;
+import de.mvbonline.jmeteranalyzer.backend.config.Config;
+import de.mvbonline.jmeteranalyzer.frontend.ImportFileFactory;
+import de.mvbonline.jmeteranalyzer.frontend.ImportFileJob;
+import de.mvbonline.jmeteranalyzer.frontend.ImportJtlFile;
+import de.mvbonline.jmeteranalyzer.frontend.jmx.ImportJmxFile;
+import de.mvbonline.jmeteranalyzer.util.ProgressingRunnable;
+import de.mvbonline.jmeteranalyzer.util.ProgressingRunnableLogger;
+
 import java.io.*;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -12,67 +22,123 @@ import java.util.List;
  */
 public class Analyze {
 
-    private void run(String... args) throws SQLException, IOException, FileNotFoundException {
-        if (args.length < 1) {
-            throw new IllegalArgumentException("First parameter needs to be a JTL file!");
+    private String findArg(String flag, String defaultValue, String... args) {
+        for (int i = 0; i < args.length; i++) {
+            if(flag.equals(args[i])) {
+                if(i + 1 < args.length) {
+                    String arg = args[i + 1];
+                    if(arg.startsWith("-")) {
+                        throw new IllegalArgumentException("Missing argument after " + flag);
+                    }
+                    return arg;
+                } else {
+                    throw new IllegalArgumentException("Missing argument after " + flag);
+                }
+            }
         }
 
-        String source = args[0];
-        String aggregateDest = "result";
-        if(args.length > 1) {
+        if(defaultValue == null) {
+            throw new IllegalArgumentException("Missing argument " + flag);
+        }
+
+        return defaultValue;
+    }
+
+    private void run(String... args) {
+
+        File source;
+        String aggregateDest;
+        File jmxSourceFile;
+
+        if (args.length < 1) {
+            throw new IllegalArgumentException("First parameter needs to be a JTL file!");
+        } else if(args.length == 1) {
+            source = new File(args[0]);
+            aggregateDest = "result";
+            jmxSourceFile = null;
+        } else if(args.length == 2 && !args[0].startsWith("-")) {
+            source = new File(args[0]);
             aggregateDest = args[1];
+            jmxSourceFile = null;
+        } else {
+            String jmxFile = findArg("-jmx", "", args);
+            if(!jmxFile.isEmpty()) {
+                jmxSourceFile = new File(jmxFile);
+            } else {
+                jmxSourceFile = null;
+            }
+
+            source = new File(findArg("-in", null, args));
+            aggregateDest = findArg("-out", "result", args);
         }
 
         File resultDir = new File(aggregateDest);
         if(!resultDir.exists()) {
             if(!resultDir.mkdirs()) {
-                throw new IOException("Could not create result directory " + resultDir);
+                throw new RuntimeException(new IOException("Could not create result directory " + resultDir));
             }
         }
-        File aggreateFile = new File(resultDir, "results.txt");
-        PrintWriter fileStream;
-        fileStream = new PrintWriter(new FileOutputStream(aggreateFile));
 
-        String dest = new File(resultDir, "data.sqlite").getAbsolutePath();
-        boolean createTable = !(new File(dest).exists());
+        File aggregateFile = new File(resultDir, "results.txt");
 
-        if(!createTable) {
-            System.out.println("The database file already exists. Will use that instead of importing values again.");
+        try(PrintWriter fileStream = new PrintWriter(new FileOutputStream(aggregateFile))) {
+            File dest = new File(resultDir, "data.sqlite");
+            boolean createTable = !(dest.exists());
+
+            if(!createTable) {
+                System.out.println("The database file already exists. Will use that instead of importing values again.");
+            }
+
+            if(jmxSourceFile == null) {
+                analyze(source, dest, createTable, fileStream);
+            } else {
+                analyzeWithJmx(source, jmxSourceFile, dest, createTable, fileStream);
+            }
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
         }
-
-        analyze(source, dest, createTable, fileStream);
     }
 
-    public void analyze(String source, String dest, boolean createTable, PrintWriter resultWriter) throws SQLException {
-        Connection connection = DriverManager.getConnection("jdbc:sqlite:" + dest);
+    private void doImportAndAnalyze(File source, Connection connection, boolean createTable, PrintWriter resultFileWriter) {
+        ImportFileJob importFile = ImportFileFactory.buildImportFileJob(source, createTable, connection);
 
-        ImportFile importFile = new ImportFile(source, createTable, connection);
         ProgressingRunnableLogger pal = new ProgressingRunnableLogger((createTable) ? "Importing JTL file" : "Reading JTL file", importFile);
         pal.doAction();
 
         List<String> tables = importFile.getTables();
 
-        pal = new ProgressingRunnableLogger("Calculating aggregates", new CalculatingTotalAggregates(connection, tables, Config.TOTAL_AGGREGATES, Config.PER_LABEL_AGGREGATES, resultWriter));
+        pal = new ProgressingRunnableLogger("Calculating aggregates", new CalculatingTotalAggregates(connection, tables, Config.TOTAL_AGGREGATES, Config.PER_LABEL_AGGREGATES, resultFileWriter));
         pal.doAction();
 
-        pal = new ProgressingRunnableLogger("Calculating aggregates per label", new CalculatingAggregatesPerLabel(connection, tables, Config.PER_LABEL_AGGREGATES, resultWriter));
+        pal = new ProgressingRunnableLogger("Calculating aggregates per label", new CalculatingAggregatesPerLabel(connection, tables, Config.PER_LABEL_AGGREGATES, resultFileWriter));
         pal.doAction();
+    }
 
-        connection.close();
-        resultWriter.flush();
-        resultWriter.close();
+    public void analyzeWithJmx(File jtlSource, File jmxSource, File destDatabase, boolean createTable, PrintWriter resultFileWriter) {
+        try(Connection connection = DriverManager.getConnection("jdbc:sqlite:" + destDatabase.getAbsolutePath())) {
+            doImportAndAnalyze(jtlSource, connection, createTable, resultFileWriter);
 
+            ProgressingRunnableLogger pal = new ProgressingRunnableLogger("Importing JMX data", new ImportJmxFile(jmxSource, createTable, connection));
+            pal.doAction();
+
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void analyze(File jtlSource, File destDatabase, boolean createTable, PrintWriter resultFileWriter) {
+        try(Connection connection = DriverManager.getConnection("jdbc:sqlite:" + destDatabase.getAbsolutePath())) {
+            doImportAndAnalyze(jtlSource, connection, createTable, resultFileWriter);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static void main(String... args) {
         Analyze analyze = new Analyze();
-        try {
-            analyze.run(args);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+
+        analyze.run(args);
     }
 
 }

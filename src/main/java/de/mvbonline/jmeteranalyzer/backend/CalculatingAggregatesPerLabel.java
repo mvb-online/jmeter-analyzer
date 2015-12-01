@@ -1,7 +1,9 @@
 
 
-package de.mvbonline.jmeteranalyzer;
+package de.mvbonline.jmeteranalyzer.backend;
 
+import de.mvbonline.jmeteranalyzer.util.ProgressingRunnable;
+import de.mvbonline.jmeteranalyzer.util.ProgressingRunnableLogger;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 
 import java.io.PrintStream;
@@ -18,8 +20,7 @@ import java.util.Set;
 /**
  * ProgressingAction to calculate the aggregates for every label
  */
-class CalculatingAggregatesPerLabel implements ProgressingRunnable {
-    private String status = "starting";
+public class CalculatingAggregatesPerLabel implements ProgressingRunnable {
 
     private ByteArrayOutputStream rawOut;
 
@@ -44,25 +45,20 @@ class CalculatingAggregatesPerLabel implements ProgressingRunnable {
     }
 
     @Override
-    public String getProgress() {
-        return status;
-    }
-
-    @Override
-    public void run() {
+    public void run(ProgressingRunnableLogger context) throws SQLException {
         try {
             for(String table : tables) {
 
                 out.println();
                 out.println(table);
 
-                status = table + ": getting labels";
+                context.setStatus(table + ": getting labels");
 
                 Statement s = c.createStatement();
 
                 Set<String> names = new HashSet<>();
 
-                ResultSet result = s.executeQuery("select distinct name from " + table);
+                ResultSet result = s.executeQuery("select distinct name from '" + table + "'");
 
                 while(result.next()) {
                     names.add(result.getString("name"));
@@ -71,7 +67,7 @@ class CalculatingAggregatesPerLabel implements ProgressingRunnable {
                 s.close();
 
                 for(String name : names) {
-                    status = table + ":" + name;
+                    context.setStatus(table + ":" + name);
 
                     out.println("\t");
                     out.println("\t" + name);
@@ -79,7 +75,7 @@ class CalculatingAggregatesPerLabel implements ProgressingRunnable {
 
                     for(Map.Entry<String, String> agg : aggregate.entrySet()) {
                         Statement statement = c.createStatement();
-                        String query = agg.getValue().replace("%name%", "name = '" + name + "'").replace("%table%", table);
+                        String query = agg.getValue().replace("%name%", "name = '" + name + "'").replace("%table%", "'" + table + "'");
                         ResultSet rs = statement.executeQuery(query);
                         if(!rs.next()) {
                             System.err.println("Did not get result from query: " + agg.getKey());
@@ -95,15 +91,8 @@ class CalculatingAggregatesPerLabel implements ProgressingRunnable {
                 }
             }
 
-            status = "OK";
-        } catch (SQLException e) {
-            status = "FAIL";
-        }
-    }
-
-    @Override
-    public void end() {
-        if(!status.equals("FAIL")) {
+            context.setStatus("OK");
+        } finally {
             out.flush();
             output.println(rawOut);
         }
