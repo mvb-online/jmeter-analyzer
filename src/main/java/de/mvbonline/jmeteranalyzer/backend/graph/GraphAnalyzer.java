@@ -44,7 +44,6 @@ public class GraphAnalyzer implements Analyzer {
                         while(resultSet.next()) {
                             foundAny = true;
 
-
                             long timestamp = resultSet.getLong("timestamp");
                             if(start == null) {
                                 start = new Date(timestamp);
@@ -59,9 +58,9 @@ public class GraphAnalyzer implements Analyzer {
 
                             boolean success = resultSet.getBoolean("success");
                             if(success) {
-                                jsData.append("lineColor: '#5fb503',");
+                                jsData.append("lineColor: '#5fb503',\n");
                             } else {
-                                jsData.append("lineColor: '#ff0000',");
+                                jsData.append("lineColor: '#ff0000',\n");
                             }
 
                             jsData.append("duration: ");
