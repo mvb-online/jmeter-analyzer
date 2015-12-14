@@ -13,6 +13,7 @@ import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 /**
  * Created by mholz on 14.12.2015.
@@ -83,6 +84,7 @@ public class GraphAnalyzer implements Analyzer {
                     file = file.replace("$RESULT_DATA$", jsData.toString());
 
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd-HHmmssSSS");
+                    sdf.setTimeZone(TimeZone.getTimeZone("GMT+00:00"));
                     String startString = sdf.format(start);
                     String endString = sdf.format(end);
 
