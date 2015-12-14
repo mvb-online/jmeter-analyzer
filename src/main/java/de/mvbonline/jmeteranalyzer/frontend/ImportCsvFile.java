@@ -43,17 +43,22 @@ public class ImportCsvFile implements ImportFileJob {
 
             String line;
             while((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
                 if(first) {
-                    first = false;
-                    continue;
+                    try {
+                        int test = Integer.parseInt(parts[0]);
+                    } catch (NumberFormatException e) {
+                        continue;
+                    } finally {
+                        first = false;
+                    }
                 }
                 context.setStatus("" + counter);
 
-                String[] parts = line.split(",");
 
                 Sample s = new Sample();
                 s.setResponseSize(Integer.parseInt(parts[8]));
-                s.setDuration(Integer.parseInt(parts[12]));
+                s.setDuration(Integer.parseInt(parts[1]));
                 s.setResponseMessage(parts[4]);
                 s.setName(parts[2]);
                 s.setResponseCode(parts[3]);
