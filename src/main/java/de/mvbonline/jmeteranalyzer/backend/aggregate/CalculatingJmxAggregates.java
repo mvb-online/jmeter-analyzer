@@ -1,4 +1,4 @@
-package de.mvbonline.jmeteranalyzer.backend;
+package de.mvbonline.jmeteranalyzer.backend.aggregate;
 
 import de.mvbonline.jmeteranalyzer.util.ProgressingRunnable;
 import de.mvbonline.jmeteranalyzer.util.ProgressingRunnableLogger;

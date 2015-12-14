@@ -1,20 +1,22 @@
 package de.mvbonline.jmeteranalyzer;
 
-import de.mvbonline.jmeteranalyzer.backend.CalculatingAggregatesPerLabel;
-import de.mvbonline.jmeteranalyzer.backend.CalculatingTotalAggregates;
-import de.mvbonline.jmeteranalyzer.backend.config.Config;
+import de.mvbonline.jmeteranalyzer.backend.aggregate.CalculatingAggregatesPerLabel;
+import de.mvbonline.jmeteranalyzer.backend.aggregate.CalculatingTotalAggregates;
+import de.mvbonline.jmeteranalyzer.backend.aggregate.config.Config;
+import de.mvbonline.jmeteranalyzer.backend.base.Analyzer;
 import de.mvbonline.jmeteranalyzer.frontend.ImportFileFactory;
 import de.mvbonline.jmeteranalyzer.frontend.ImportFileJob;
-import de.mvbonline.jmeteranalyzer.frontend.ImportJtlFile;
 import de.mvbonline.jmeteranalyzer.frontend.jmx.ImportJmxFile;
-import de.mvbonline.jmeteranalyzer.util.ProgressingRunnable;
 import de.mvbonline.jmeteranalyzer.util.ProgressingRunnableLogger;
+import org.reflections.Reflections;
 
 import java.io.*;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 
 /**
@@ -99,7 +101,7 @@ public class Analyze {
         }
     }
 
-    private void doImportAndAnalyze(File source, Connection connection, boolean createTable, PrintWriter resultFileWriter) {
+    private void doImportAndAnalyze(File source, Connection connection, boolean createTable, PrintWriter resultFileWriter, File resultDir) {
         ImportFileJob importFile = ImportFileFactory.buildImportFileJob(source, createTable, connection);
 
         ProgressingRunnableLogger pal = new ProgressingRunnableLogger((createTable) ? "Importing JTL file" : "Reading JTL file", importFile);
@@ -107,16 +109,22 @@ public class Analyze {
 
         List<String> tables = importFile.getTables();
 
-        pal = new ProgressingRunnableLogger("Calculating aggregates", new CalculatingTotalAggregates(connection, tables, Config.TOTAL_AGGREGATES, Config.PER_LABEL_AGGREGATES, resultFileWriter));
-        pal.doAction();
+        Reflections reflections = new Reflections();
+        Set<Class<? extends Analyzer>> analyzers = reflections.getSubTypesOf(Analyzer.class);
 
-        pal = new ProgressingRunnableLogger("Calculating aggregates per label", new CalculatingAggregatesPerLabel(connection, tables, Config.PER_LABEL_AGGREGATES, resultFileWriter));
-        pal.doAction();
+        for (Class<? extends Analyzer> analyzerClass : analyzers) {
+            try {
+                Analyzer analyzer = analyzerClass.newInstance();
+                analyzer.analyze(connection, tables, resultFileWriter, resultDir);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public void analyzeWithJmx(File jtlSource, File jmxSource, File destDatabase, boolean createTable, PrintWriter resultFileWriter) {
         try(Connection connection = DriverManager.getConnection("jdbc:sqlite:" + destDatabase.getAbsolutePath())) {
-            doImportAndAnalyze(jtlSource, connection, createTable, resultFileWriter);
+            doImportAndAnalyze(jtlSource, connection, createTable, resultFileWriter, destDatabase.getParentFile());
 
             ProgressingRunnableLogger pal = new ProgressingRunnableLogger("Importing JMX data", new ImportJmxFile(jmxSource, createTable, connection));
             pal.doAction();
@@ -129,13 +137,15 @@ public class Analyze {
 
     public void analyze(File jtlSource, File destDatabase, boolean createTable, PrintWriter resultFileWriter) {
         try(Connection connection = DriverManager.getConnection("jdbc:sqlite:" + destDatabase.getAbsolutePath())) {
-            doImportAndAnalyze(jtlSource, connection, createTable, resultFileWriter);
+            doImportAndAnalyze(jtlSource, connection, createTable, resultFileWriter, destDatabase.getParentFile());
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
     public static void main(String... args) {
+        System.setProperty("java.awt.headless", "true");
+
         Analyze analyze = new Analyze();
 
         analyze.run(args);

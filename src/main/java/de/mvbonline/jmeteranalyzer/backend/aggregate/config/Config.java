@@ -1,5 +1,5 @@
 
-package de.mvbonline.jmeteranalyzer.backend.config;
+package de.mvbonline.jmeteranalyzer.backend.aggregate.config;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
