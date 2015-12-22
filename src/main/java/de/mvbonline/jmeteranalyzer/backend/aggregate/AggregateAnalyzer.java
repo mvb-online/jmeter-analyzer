@@ -3,6 +3,7 @@ package de.mvbonline.jmeteranalyzer.backend.aggregate;
 import de.mvbonline.jmeteranalyzer.Analyze;
 import de.mvbonline.jmeteranalyzer.backend.aggregate.config.Config;
 import de.mvbonline.jmeteranalyzer.backend.base.Analyzer;
+import de.mvbonline.jmeteranalyzer.backend.base.IgnoreAnalyzer;
 import de.mvbonline.jmeteranalyzer.util.ProgressingRunnableLogger;
 
 import java.io.File;

@@ -4,6 +4,7 @@ import de.mvbonline.jmeteranalyzer.backend.aggregate.CalculatingAggregatesPerLab
 import de.mvbonline.jmeteranalyzer.backend.aggregate.CalculatingTotalAggregates;
 import de.mvbonline.jmeteranalyzer.backend.aggregate.config.Config;
 import de.mvbonline.jmeteranalyzer.backend.base.Analyzer;
+import de.mvbonline.jmeteranalyzer.backend.base.IgnoreAnalyzer;
 import de.mvbonline.jmeteranalyzer.frontend.ImportFileFactory;
 import de.mvbonline.jmeteranalyzer.frontend.ImportFileJob;
 import de.mvbonline.jmeteranalyzer.frontend.jmx.ImportJmxFile;
@@ -114,8 +115,12 @@ public class Analyze {
 
         for (Class<? extends Analyzer> analyzerClass : analyzers) {
             try {
-                Analyzer analyzer = analyzerClass.newInstance();
-                analyzer.analyze(connection, tables, resultFileWriter, resultDir);
+                if(analyzerClass.getAnnotation(IgnoreAnalyzer.class) == null) {
+                    Analyzer analyzer = analyzerClass.newInstance();
+                    analyzer.analyze(connection, tables, resultFileWriter, resultDir);
+                } else {
+                    System.out.println("Skipping " + analyzerClass.getSimpleName() + "...");
+                }
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
